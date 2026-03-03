@@ -1,6 +1,7 @@
 package dji.sampleV5.aircraft.models
 
 import androidx.lifecycle.MutableLiveData
+import dji.sdk.keyvalue.key.FlightControllerKey
 import dji.sdk.keyvalue.key.RemoteControllerKey
 import dji.sdk.keyvalue.value.flightcontroller.*
 import dji.v5.common.callback.CommonCallbacks
@@ -24,6 +25,7 @@ class VirtualStickVM : DJIViewModel() {
     val currentSpeedLevel = MutableLiveData(0.0)
     var useRcStick = MutableLiveData(false)
     val currentVirtualStickStateInfo = MutableLiveData(VirtualStickStateInfo())
+    val currentAltitude = MutableLiveData(0.0)
 
     val virtualStickAdvancedParam = MutableLiveData(VirtualStickFlightControlParam()).apply {
         value?.rollPitchCoordinateSystem = FlightCoordinateSystem.BODY
@@ -51,6 +53,12 @@ class VirtualStickVM : DJIViewModel() {
                 })
             }
         })
+
+        FlightControllerKey.KeyAltitude.create().listen(this) {
+            it?.let { altitude ->
+                currentAltitude.postValue(altitude)
+            }
+        }
     }
 
     fun enableVirtualStick(callback: CommonCallbacks.CompletionCallback) {
@@ -78,6 +86,15 @@ class VirtualStickVM : DJIViewModel() {
 
     fun sendVirtualStickAdvancedParam(param: VirtualStickFlightControlParam) {
         VirtualStickManager.getInstance().sendVirtualStickAdvancedParam(param)
+    }
+
+    fun sendVerticalCommand(verticalThrottle: Double) {
+        val controlParam = virtualStickAdvancedParam.value ?: VirtualStickFlightControlParam()
+        controlParam.pitch = 0.0
+        controlParam.roll = 0.0
+        controlParam.yaw = 0.0
+        controlParam.verticalThrottle = verticalThrottle
+        sendVirtualStickAdvancedParam(controlParam)
     }
 
     fun disableVirtualStickAdvancedMode() {

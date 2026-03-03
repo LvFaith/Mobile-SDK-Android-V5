@@ -12,6 +12,10 @@ import dji.sampleV5.aircraft.models.SimulatorVM
 import dji.sampleV5.aircraft.models.VirtualStickVM
 import dji.sampleV5.aircraft.util.Helper
 import dji.sampleV5.aircraft.util.ToastUtils
+import dji.sdk.keyvalue.value.flightcontroller.FlightCoordinateSystem
+import dji.sdk.keyvalue.value.flightcontroller.RollPitchControlMode
+import dji.sdk.keyvalue.value.flightcontroller.VerticalControlMode
+import dji.sdk.keyvalue.value.flightcontroller.YawControlMode
 import dji.sampleV5.aircraft.virtualstick.OnScreenJoystick
 import dji.sampleV5.aircraft.virtualstick.OnScreenJoystickListener
 import dji.sdk.keyvalue.value.common.EmptyMsg
@@ -37,6 +41,9 @@ class VirtualStickFragment : DJIFragment() {
     private val simulatorVM: SimulatorVM by activityViewModels()
     private var binding: FragVirtualStickPageBinding? = null
     private val deviation: Double = 0.02
+    private val targetHoverAltitude = 1.0
+    private val maxRiseRateMps = 0.6
+    private val altitudeTolerance = 0.1
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -66,6 +73,9 @@ class VirtualStickFragment : DJIFragment() {
             updateVirtualStickInfo()
         }
         virtualStickVM.virtualStickAdvancedParam.observe(viewLifecycleOwner) {
+            updateVirtualStickInfo()
+        }
+        virtualStickVM.currentAltitude.observe(viewLifecycleOwner) {
             updateVirtualStickInfo()
         }
         simulatorVM.simulatorStateSb.observe(viewLifecycleOwner) {
@@ -104,16 +114,7 @@ class VirtualStickFragment : DJIFragment() {
             }
         }
         binding?.btnTakeOff?.setOnClickListener {
-            basicAircraftControlVM.startTakeOff(object :
-                CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
-                override fun onSuccess(t: EmptyMsg?) {
-                    ToastUtils.showToast("start takeOff onSuccess.")
-                }
-
-                override fun onFailure(error: IDJIError) {
-                    ToastUtils.showToast("start takeOff onFailure,$error")
-                }
-            })
+            startTakeoffToOneMeter()
         }
         binding?.btnLanding?.setOnClickListener {
             basicAircraftControlVM.startLanding(object :
@@ -162,6 +163,52 @@ class VirtualStickFragment : DJIFragment() {
         binding?.btnDisableVirtualStickAdvancedMode?.setOnClickListener {
             virtualStickVM.disableVirtualStickAdvancedMode()
         }
+    }
+
+    private fun startTakeoffToOneMeter() {
+        basicAircraftControlVM.startTakeOff(object :
+            CommonCallbacks.CompletionCallbackWithParam<EmptyMsg> {
+            override fun onSuccess(t: EmptyMsg?) {
+                ToastUtils.showToast("Takeoff success, climbing to 1.0m and hovering.")
+                virtualStickVM.enableVirtualStickAdvancedMode()
+                val controlParam = virtualStickVM.virtualStickAdvancedParam.value
+                    ?: VirtualStickFlightControlParam()
+                controlParam.rollPitchCoordinateSystem = FlightCoordinateSystem.BODY
+                controlParam.verticalControlMode = VerticalControlMode.VELOCITY
+                controlParam.yawControlMode = YawControlMode.ANGULAR_VELOCITY
+                controlParam.rollPitchControlMode = RollPitchControlMode.ANGLE
+                virtualStickVM.virtualStickAdvancedParam.postValue(controlParam)
+
+                mainHandler.postDelayed({
+                    climbToTargetAltitude()
+                }, 3000)
+            }
+
+            override fun onFailure(error: IDJIError) {
+                ToastUtils.showToast("start takeOff onFailure,$error")
+            }
+        })
+    }
+
+    private fun climbToTargetAltitude() {
+        val currentAltitude = virtualStickVM.currentAltitude.value ?: 0.0
+        val altitudeError = targetHoverAltitude - currentAltitude
+        val riseRate = when {
+            altitudeError > altitudeTolerance -> minOf(maxRiseRateMps, altitudeError)
+            altitudeError < -altitudeTolerance -> maxOf(-maxRiseRateMps, altitudeError)
+            else -> 0.0
+        }
+        virtualStickVM.sendVerticalCommand(riseRate)
+
+        if (kotlin.math.abs(altitudeError) <= altitudeTolerance) {
+            ToastUtils.showToast("Reached ~1.0m altitude, hovering.")
+            virtualStickVM.sendVerticalCommand(0.0)
+            return
+        }
+
+        mainHandler.postDelayed({
+            climbToTargetAltitude()
+        }, 200)
     }
 
     private fun initStickListener() {
@@ -222,6 +269,8 @@ class VirtualStickFragment : DJIFragment() {
         builder.append("Is virtual stick advanced mode enable:").append(virtualStickVM.currentVirtualStickStateInfo.value?.state?.isVirtualStickAdvancedModeEnabled)
         builder.append("\n")
         builder.append("Virtual stick advanced mode param:").append(virtualStickVM.virtualStickAdvancedParam.value?.toJson())
+        builder.append("\n")
+        builder.append("Current altitude(m):").append(virtualStickVM.currentAltitude.value)
         builder.append("\n")
         mainHandler.post {
             binding?.virtualStickInfoTv?.text = builder.toString()

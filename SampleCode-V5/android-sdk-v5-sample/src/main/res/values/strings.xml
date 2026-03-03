@@ -83,8 +83,8 @@ More refer to the release notes." </string>
     <string name="enable_virtual_stick_advanced_mode">Enable Virtual Stick Advanced Mode</string>
     <string name="disable_virtual_stick_advanced_mode">Disable Virtual Stick Advanced Mode</string>
 
-    <string name="btn_take_off">Take Off</string>
-    <string name="btn_landing">Landing</string>
+    <string name="btn_take_off">One-Key Takeoff (1m Hover)</string>
+    <string name="btn_landing">One-Key Landing</string>
 
     <string name="btn_start_channel">Start Channel</string>
     <string name="btn_close_channel">Close Channel</string>

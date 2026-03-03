@@ -90,8 +90,8 @@
     <string name="enable_virtual_stick_advanced_mode">开启虚拟摇杆高级模式</string>
     <string name="disable_virtual_stick_advanced_mode">关闭虚拟摇杆高级模式</string>
 
-    <string name="btn_take_off">起飞</string>
-    <string name="btn_landing">降落</string>
+    <string name="btn_take_off">一键起飞至1米悬停</string>
+    <string name="btn_landing">一键降落</string>
 
     <string name="btn_start_channel">开启视频通道</string>
     <string name="btn_close_channel">关闭视频通道</string>
